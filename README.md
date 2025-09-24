@@ -2,6 +2,8 @@
 
 基于 Google Maps 的实时车辆轨迹展示系统，支持多车辆路线规划、动画演示和车辆信息管理。
 
+![Demo 效果](./demo.png)
+
 ## 功能特性
 
 - **全屏地图展示** - 基于 Google Maps WebGL API
