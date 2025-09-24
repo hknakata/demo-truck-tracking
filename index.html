@@ -1,0 +1,111 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+  <title>卡车追踪 - 深圳</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- 替换为你的 Google Maps API Key -->
+  <script>
+    // 先定义回调，避免脚本抢先加载导致回调未定义
+    window.__initGoogleMaps = function() {
+      window.dispatchEvent(new Event('google-maps-ready'));
+    };
+    (function() {
+      const apiKey = 'AIzaSyDPPTABQcQBq3ffi5aDiKNGlc3SAY0X-pE';
+      const url = `https://maps.googleapis.com/maps/api/js?v=weekly&key=${apiKey}&callback=__initGoogleMaps&libraries=geometry,marker&loading=async`;
+      const s = document.createElement('script');
+      s.src = url;
+      s.async = true;
+      s.defer = true;
+      document.head.appendChild(s);
+    })();
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">卡车追踪</div>
+      <div class="subtitle">深圳  实时位置与轨迹</div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <button id="anim-toggle" class="button">播放</button>
+      </div>
+      <div class="truck-filter">
+        <label class="filter-label">显示车辆:</label>
+        <div class="filter-checkboxes">
+          <label class="checkbox-item">
+            <input type="checkbox" id="truck-T-001" checked>
+            <span class="truck-color" style="background-color: #8B5CF6;"></span>
+            粤B 12345挂
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="truck-T-002" checked>
+            <span class="truck-color" style="background-color: #A0522D;"></span>
+            粤B A5678挂
+          </label>
+        </div>
+      </div>
+    </header>
+    <main id="map"></main>
+    
+    <!-- 车辆信息弹窗 -->
+    <div id="vehicle-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3 class="modal-title">车辆信息</h3>
+          <button class="modal-close" id="modal-close">&times;</button>
+        </div>
+        <div class="modal-content">
+          <div class="vehicle-info">
+            <div class="info-row">
+              <span class="info-label">车牌号码:</span>
+              <span class="info-value" id="modal-plate-number">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">车辆ID:</span>
+              <span class="info-value" id="modal-vehicle-id">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">司机姓名:</span>
+              <span class="info-value" id="modal-driver-name">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">联系电话:</span>
+              <span class="info-value" id="modal-driver-phone">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">当前状态:</span>
+              <span class="info-value status" id="modal-vehicle-status">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">当前位置:</span>
+              <span class="info-value" id="modal-current-location">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">目的地:</span>
+              <span class="info-value" id="modal-destination">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">行驶里程:</span>
+              <span class="info-value" id="modal-distance">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">平均速度:</span>
+              <span class="info-value" id="modal-avg-speed">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">最后更新:</span>
+              <span class="info-value" id="modal-last-update">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <footer class="app-footer">
+      <div> <span id="year"></span> 车队调度  演示版</div>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
