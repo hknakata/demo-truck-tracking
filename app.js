@@ -21,6 +21,7 @@
         destination: '盐田港码头',
         avgSpeed: '45 km/h',
         distance: '23.5 km',
+        volume: 78.5, // CBM
         currentPosition: { lng: 114.26075018290588, lat: 22.576257267483825 },
         path: [
           { lng: 114.25958433451825, lat: 22.571048425559137 },
@@ -37,18 +38,191 @@
         destination: '南山科技园',
         avgSpeed: '0 km/h',
         distance: '45.8 km',
+        volume: 78.3, // CBM
         currentPosition: { lng: 113.95077177905802, lat: 22.487783013429425 },
         path: [
           { lng: 114.26520260215443, lat: 22.577090368026855 },
           { lng: 113.95077177905802, lat: 22.487783013429425 }
         ]
       }
+    ],
+    jobs: [
+      { id: 'J-001', truckId: 'T-001', status: '进行中', volume: 78.5 },
+      { id: 'J-002', truckId: 'T-002', status: '进行中', volume: 78.3 },
+      { id: 'J-003', truckId: 'T-001', status: '已完成', volume: 65.2 },
+      { id: 'J-004', truckId: 'T-002', status: '已完成', volume: 45.8 },
+      { id: 'J-005', truckId: 'T-001', status: '待分配', volume: 32.1 },
+      { id: 'J-006', truckId: 'T-002', status: '待分配', volume: 28.9 },
+      { id: 'J-007', truckId: 'T-001', status: '已完成', volume: 55.6 },
+      { id: 'J-008', truckId: 'T-002', status: '进行中', volume: 41.2 }
+    ],
+    exceptions: [
+      { id: 'E-001', truckId: 'T-001', type: '路线偏离', severity: '中等', time: new Date(Date.now() - 2 * 60 * 60 * 1000) }, // 2 hours ago
+      { id: 'E-002', truckId: 'T-002', type: '超时停车', severity: '低', time: new Date(Date.now() - 45 * 60 * 1000) }, // 45 minutes ago
+      { id: 'E-003', truckId: 'T-001', type: '设备故障', severity: '高', time: new Date(Date.now() - 15 * 60 * 1000) } // 15 minutes ago
     ]
   };
 
   function initYear() {
     var yearEl = document.getElementById('year');
     if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+  }
+
+  function updateDashboard() {
+    // 更新车辆数量
+    const truckCountEl = document.getElementById('truck-count');
+    if (truckCountEl) {
+      truckCountEl.textContent = state.trucks.length;
+    }
+
+    // 更新任务数量
+    const jobCountEl = document.getElementById('job-count');
+    if (jobCountEl) {
+      jobCountEl.textContent = state.jobs.length;
+    }
+
+    // 更新总体积 (CBM)
+    const volumeCbmEl = document.getElementById('volume-cbm');
+    if (volumeCbmEl) {
+      const totalVolume = state.jobs.reduce((sum, job) => sum + job.volume, 0);
+      volumeCbmEl.textContent = totalVolume.toFixed(1);
+    }
+
+    // 更新异常数量
+    const exceptionCountEl = document.getElementById('exception-count');
+    if (exceptionCountEl) {
+      exceptionCountEl.textContent = state.exceptions.length;
+      // Make the exception card clickable
+      const exceptionCard = exceptionCountEl.closest('.dashboard-card');
+      if (exceptionCard && !exceptionCard.hasAttribute('data-clickable')) {
+        exceptionCard.style.cursor = 'pointer';
+        exceptionCard.setAttribute('data-clickable', 'true');
+        exceptionCard.addEventListener('click', showExceptionsModal);
+      }
+    }
+  }
+
+  function addRandomException() {
+    const truckIds = state.trucks.map(t => t.id);
+    const exceptionTypes = ['路线偏离', '超时停车', '设备故障', '超速行驶', '急刹车'];
+    const severities = ['低', '中等', '高'];
+    
+    // Create a realistic timestamp - sometimes very recent, sometimes a bit older
+    const now = Date.now();
+    const randomMinutesAgo = Math.floor(Math.random() * 30) + 1; // 1-30 minutes ago
+    const exceptionTime = new Date(now - randomMinutesAgo * 60 * 1000);
+    
+    const newException = {
+      id: 'E-' + String(Date.now()).slice(-6),
+      truckId: truckIds[Math.floor(Math.random() * truckIds.length)],
+      type: exceptionTypes[Math.floor(Math.random() * exceptionTypes.length)],
+      severity: severities[Math.floor(Math.random() * severities.length)],
+      time: exceptionTime
+    };
+    
+    state.exceptions.push(newException);
+    updateDashboard();
+    
+    // 限制异常数量，移除最旧的异常
+    if (state.exceptions.length > 10) {
+      state.exceptions.shift();
+    }
+  }
+
+  function simulateDataUpdates() {
+    // 每30秒随机添加一个异常 - DISABLED
+    // setInterval(addRandomException, 30000);
+    
+    // 每5分钟更新一次任务状态
+    setInterval(() => {
+      const activeJobs = state.jobs.filter(job => job.status === '进行中');
+      if (activeJobs.length > 0) {
+        const randomJob = activeJobs[Math.floor(Math.random() * activeJobs.length)];
+        randomJob.status = '已完成';
+        updateDashboard();
+      }
+    }, 300000);
+  }
+
+  function addGridOverlay(map) {
+    // Create a custom overlay for the grid
+    const gridOverlay = new google.maps.OverlayView();
+    
+    gridOverlay.onAdd = function() {
+      const div = document.createElement('div');
+      div.style.position = 'absolute';
+      div.style.pointerEvents = 'none';
+      div.style.zIndex = '1';
+      this.div = div;
+      
+      const panes = this.getPanes();
+      panes.overlayLayer.appendChild(div);
+    };
+    
+    gridOverlay.draw = function() {
+      const overlay = this;
+      const projection = this.getProjection();
+      const bounds = map.getBounds();
+      
+      if (!projection || !bounds) return;
+      
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      
+      // Calculate grid spacing based on zoom level
+      const zoom = map.getZoom();
+      let gridSpacing = 0.01; // Default spacing
+      
+      if (zoom >= 15) gridSpacing = 0.005;
+      else if (zoom >= 13) gridSpacing = 0.01;
+      else if (zoom >= 11) gridSpacing = 0.02;
+      else if (zoom >= 9) gridSpacing = 0.05;
+      else gridSpacing = 0.1;
+      
+      // Create grid lines
+      let gridHTML = '<svg width="100%" height="100%" style="position: absolute; top: 0; left: 0;">';
+      
+      // Vertical lines
+      for (let lng = Math.floor(sw.lng() / gridSpacing) * gridSpacing; lng <= ne.lng(); lng += gridSpacing) {
+        const point1 = projection.fromLatLngToDivPixel(new google.maps.LatLng(sw.lat(), lng));
+        const point2 = projection.fromLatLngToDivPixel(new google.maps.LatLng(ne.lat(), lng));
+        
+        if (point1 && point2) {
+          gridHTML += `<line x1="${point1.x}" y1="${point1.y}" x2="${point2.x}" y2="${point2.y}" stroke="rgba(77, 163, 255, 0.3)" stroke-width="1" stroke-dasharray="2,2"/>`;
+        }
+      }
+      
+      // Horizontal lines
+      for (let lat = Math.floor(sw.lat() / gridSpacing) * gridSpacing; lat <= ne.lat(); lat += gridSpacing) {
+        const point1 = projection.fromLatLngToDivPixel(new google.maps.LatLng(lat, sw.lng()));
+        const point2 = projection.fromLatLngToDivPixel(new google.maps.LatLng(lat, ne.lng()));
+        
+        if (point1 && point2) {
+          gridHTML += `<line x1="${point1.x}" y1="${point1.y}" x2="${point2.x}" y2="${point2.y}" stroke="rgba(77, 163, 255, 0.3)" stroke-width="1" stroke-dasharray="2,2"/>`;
+        }
+      }
+      
+      gridHTML += '</svg>';
+      overlay.div.innerHTML = gridHTML;
+    };
+    
+    gridOverlay.onRemove = function() {
+      if (this.div && this.div.parentNode) {
+        this.div.parentNode.removeChild(this.div);
+      }
+    };
+    
+    // Add the grid overlay to the map
+    gridOverlay.setMap(map);
+    
+    // Redraw grid when map changes
+    google.maps.event.addListener(map, 'bounds_changed', function() {
+      gridOverlay.draw();
+    });
+    
+    google.maps.event.addListener(map, 'zoom_changed', function() {
+      gridOverlay.draw();
+    });
   }
 
   function setAnimButtonLabel() {
@@ -115,7 +289,71 @@
     }
   }
 
+  function showExceptionsModal() {
+    const modal = document.getElementById('exceptions-modal');
+    const exceptionsList = document.getElementById('exceptions-list');
+    
+    if (!modal || !exceptionsList) return;
+
+    // Clear existing content
+    exceptionsList.innerHTML = '';
+
+    // Sort exceptions by severity (high to low) and time (newest first)
+    const sortedExceptions = [...state.exceptions].sort((a, b) => {
+      const severityOrder = { '高': 3, '中等': 2, '低': 1 };
+      if (severityOrder[a.severity] !== severityOrder[b.severity]) {
+        return severityOrder[b.severity] - severityOrder[a.severity];
+      }
+      return new Date(b.time) - new Date(a.time);
+    });
+
+    // Create exception items
+    sortedExceptions.forEach(exception => {
+      const truck = state.trucks.find(t => t.id === exception.truckId);
+      const truckName = truck ? truck.plateNumber : `车辆 ${exception.truckId}`;
+      
+      const exceptionItem = document.createElement('div');
+      exceptionItem.className = 'exception-item';
+      
+      // Get appropriate icon based on exception type
+      let icon = '⚠️';
+      if (exception.type.includes('路线')) icon = '🗺️';
+      else if (exception.type.includes('停车')) icon = '🅿️';
+      else if (exception.type.includes('设备')) icon = '🔧';
+      else if (exception.type.includes('超速')) icon = '🚨';
+      else if (exception.type.includes('刹车')) icon = '🛑';
+      
+      exceptionItem.innerHTML = `
+        <div class="exception-icon">${icon}</div>
+        <div class="exception-content">
+          <div class="exception-header">
+            <span class="exception-type">${exception.type}</span>
+            <span class="exception-severity ${exception.severity}">${exception.severity}</span>
+          </div>
+          <div class="exception-details">
+            <div class="exception-truck">车辆: ${truckName}</div>
+            <div class="exception-time">时间: ${exception.time.toLocaleString('zh-CN')}</div>
+            <div class="exception-id">ID: ${exception.id}</div>
+          </div>
+        </div>
+      `;
+      
+      exceptionsList.appendChild(exceptionItem);
+    });
+
+    // Show modal
+    modal.style.display = 'flex';
+  }
+
+  function hideExceptionsModal() {
+    const modal = document.getElementById('exceptions-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
   function initModalEvents() {
+    // Vehicle modal events
     const closeBtn = document.getElementById('modal-close');
     if (closeBtn) {
       closeBtn.addEventListener('click', hideVehicleModal);
@@ -130,9 +368,26 @@
       });
     }
 
+    // Exceptions modal events
+    const exceptionsCloseBtn = document.getElementById('exceptions-modal-close');
+    if (exceptionsCloseBtn) {
+      exceptionsCloseBtn.addEventListener('click', hideExceptionsModal);
+    }
+
+    const exceptionsModal = document.getElementById('exceptions-modal');
+    if (exceptionsModal) {
+      exceptionsModal.addEventListener('click', function(e) {
+        if (e.target === exceptionsModal) {
+          hideExceptionsModal();
+        }
+      });
+    }
+
+    // Global keyboard events
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         hideVehicleModal();
+        hideExceptionsModal();
       }
     });
   }
@@ -157,7 +412,10 @@
         { elementType: 'labels.text.fill', stylers: [{ color: '#e7edf5' }] },
         { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#10223f' }] },
         { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1b2a4b' }] },
-        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1a33' }] }
+        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1a33' }] },
+        // Add grid lines
+        { featureType: 'all', elementType: 'geometry.fill', stylers: [{ color: 'transparent' }] },
+        { featureType: 'all', elementType: 'labels', stylers: [{ visibility: 'on' }] }
       ];
     }
     
@@ -167,14 +425,25 @@
 
     let map = null;
     try {
+      if (!google.maps.Map) {
+        throw new Error('google.maps.Map is not available');
+      }
       map = new google.maps.Map(mapElement, mapOptions);
     } catch (e) {
       console.warn('[warn] 创建 Map 失败，将移除 mapId 回退。错误：', e.message || e);
       if (mapOptions.mapId) delete mapOptions.mapId;
       state.useMapId = false;
-      map = new google.maps.Map(mapElement, mapOptions);
+      try {
+        map = new google.maps.Map(mapElement, mapOptions);
+      } catch (e2) {
+        console.error('[error] 地图创建完全失败:', e2.message || e2);
+        return;
+      }
     }
     state.map = map;
+
+    // Add grid overlay
+    addGridOverlay(map);
 
     state.directionsService = new google.maps.DirectionsService();
     
@@ -361,33 +630,80 @@
   }
 
   function startWhenReady() {
-    if (window.google && window.google.maps) {
-      console.log('[debug] Google Maps API 已加载');
-      initMapGoogle();
-      renderRouteWithDirections();
-
-      setTimeout(function() {
-        if (!state.tilesLoaded && state.useMapId) {
-          console.warn('[maps] tiles not loaded in time, fallback to default base map');
-          state.useMapId = false;
-          initMapGoogle();
-          renderRouteWithDirections();
-        }
-      }, 3500);
+    if (window.__mapInitialized) {
+      console.log('[debug] 地图已经初始化，跳过重复初始化');
       return true;
     }
-    return false;
+    
+    if (window.google && window.google.maps && window.google.maps.Map) {
+      console.log('[debug] Google Maps API 已加载');
+      try {
+        window.__mapInitialized = true;
+        initMapGoogle();
+        renderRouteWithDirections();
+
+        setTimeout(function() {
+          if (!state.tilesLoaded && state.useMapId) {
+            console.warn('[maps] tiles not loaded in time, fallback to default base map');
+            state.useMapId = false;
+            initMapGoogle();
+            renderRouteWithDirections();
+          }
+        }, 3500);
+        return true;
+      } catch (error) {
+        console.error('[error] 地图初始化失败:', error);
+        // Retry after a short delay
+        setTimeout(function() {
+          if (window.google && window.google.maps && window.google.maps.Map) {
+            console.log('[debug] 重试地图初始化...');
+            initMapGoogle();
+            renderRouteWithDirections();
+          }
+        }, 1000);
+        return false;
+      }
+    } else {
+      console.log('[debug] Google Maps API 尚未完全加载，等待中...');
+      return false;
+    }
   }
 
   function bootstrap() {
+    if (window.__appInitialized) {
+      console.log('[debug] 应用已经初始化，跳过重复初始化');
+      return;
+    }
+    window.__appInitialized = true;
+    
     console.log('[debug] 开始启动应用...');
     initYear();
     initModalEvents();
     wireTruckFilter();
     wireAnimToggle();
+    updateDashboard();
+    simulateDataUpdates();
+    
     if (!startWhenReady()) {
       console.log('[debug] 等待 Google Maps API 加载...');
       window.addEventListener('google-maps-ready', startWhenReady, { once: true });
+      
+      // Fallback: retry every 2 seconds if Google Maps API is not ready
+      let retryCount = 0;
+      const maxRetries = 10;
+      const retryInterval = setInterval(function() {
+        retryCount++;
+        console.log('[debug] 重试检查 Google Maps API...', retryCount);
+        
+        if (window.google && window.google.maps && window.google.maps.Map) {
+          console.log('[debug] Google Maps API 在重试中加载成功');
+          clearInterval(retryInterval);
+          startWhenReady();
+        } else if (retryCount >= maxRetries) {
+          console.error('[error] Google Maps API 加载超时，停止重试');
+          clearInterval(retryInterval);
+        }
+      }, 2000);
     }
   }
 

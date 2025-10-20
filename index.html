@@ -9,7 +9,11 @@
   <script>
     // 先定义回调，避免脚本抢先加载导致回调未定义
     window.__initGoogleMaps = function() {
-      window.dispatchEvent(new Event('google-maps-ready'));
+      if (!window.__googleMapsInitialized) {
+        window.__googleMapsInitialized = true;
+        console.log('[debug] Google Maps API 回调触发');
+        window.dispatchEvent(new Event('google-maps-ready'));
+      }
     };
     (function() {
       const apiKey = 'AIzaSyDPPTABQcQBq3ffi5aDiKNGlc3SAY0X-pE';
@@ -47,6 +51,41 @@
       </div>
     </header>
     <main id="map"></main>
+    
+    <!-- 仪表板 -->
+    <div class="dashboard">
+      <div class="dashboard-logo">
+        <img src="logo - white.png" alt="MF Logo" class="dashboard-logo-img">
+      </div>
+      <div class="dashboard-card">
+        <div class="card-icon">🚛</div>
+        <div class="card-content">
+          <div class="card-value" id="truck-count">2</div>
+          <div class="card-label">车辆数量</div>
+        </div>
+      </div>
+      <div class="dashboard-card">
+        <div class="card-icon">📋</div>
+        <div class="card-content">
+          <div class="card-value" id="job-count">8</div>
+          <div class="card-label">任务数量</div>
+        </div>
+      </div>
+      <div class="dashboard-card">
+        <div class="card-icon">📦</div>
+        <div class="card-content">
+          <div class="card-value" id="volume-cbm">156.8</div>
+          <div class="card-label">体积 (CBM)</div>
+        </div>
+      </div>
+      <div class="dashboard-card">
+        <div class="card-icon">⚠️</div>
+        <div class="card-content">
+          <div class="card-value" id="exception-count">3</div>
+          <div class="card-label">异常数量</div>
+        </div>
+      </div>
+    </div>
     
     <!-- 车辆信息弹窗 -->
     <div id="vehicle-modal" class="modal-overlay" style="display: none;">
@@ -97,6 +136,21 @@
               <span class="info-label">最后更新:</span>
               <span class="info-value" id="modal-last-update">-</span>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 异常信息弹窗 -->
+    <div id="exceptions-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3 class="modal-title">异常监控</h3>
+          <button class="modal-close" id="exceptions-modal-close">&times;</button>
+        </div>
+        <div class="modal-content">
+          <div class="exceptions-list" id="exceptions-list">
+            <!-- Exceptions will be populated here -->
           </div>
         </div>
       </div>
